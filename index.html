@@ -758,6 +758,7 @@
 
         .chat-messages {
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
             padding: 20px;
             display: flex;
@@ -765,11 +766,13 @@
             gap: 14px;
             scrollbar-width: thin;
             scrollbar-color: var(--border) transparent;
+            scroll-behavior: smooth;
         }
 
         .msg {
             display: flex;
             gap: 10px;
+            align-items: flex-start;
             animation: fadeUp 0.3s ease;
         }
 
@@ -778,17 +781,21 @@
         }
 
         .msg-bubble {
-            max-width: 75%;
+            max-width: 92%;
             padding: 12px 16px;
             border-radius: 14px;
             font-size: 0.88rem;
-            line-height: 1.6;
+            line-height: 1.7;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
         }
 
         .msg.ai .msg-bubble {
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 4px 14px 14px 14px;
+            flex: 1;
         }
 
         .msg.user .msg-bubble {
@@ -796,6 +803,33 @@
             color: #0a0d0f;
             border-radius: 14px 4px 14px 14px;
             font-weight: 500;
+        }
+
+        /* Markdown-style content inside bubbles */
+        .msg-bubble strong {
+            font-weight: 700;
+        }
+
+        .msg-bubble em {
+            font-style: italic;
+        }
+
+        .msg-bubble ul,
+        .msg-bubble ol {
+            margin: 6px 0 6px 16px;
+            padding: 0;
+        }
+
+        .msg-bubble li {
+            margin-bottom: 3px;
+        }
+
+        .msg-bubble p {
+            margin-bottom: 8px;
+        }
+
+        .msg-bubble p:last-child {
+            margin-bottom: 0;
         }
 
         .chat-input-area {
@@ -1595,11 +1629,26 @@
 
         // ── FORMAT RESPONSE ──
         function formatResponse(text) {
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/^• /gm, '◆ ')
-                .replace(/\n/g, '<br>');
+            // Remove leading/trailing whitespace
+            let t = text.trim();
+            // Bold and italic
+            t = t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            t = t.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            // Headings (## or #)
+            t = t.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
+            // Bullet lists: lines starting with -, *, or •
+            t = t.replace(/^[\-\*•]\s+(.+)$/gm, '<li>$1</li>');
+            // Numbered lists
+            t = t.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+            // Wrap consecutive <li> elements in <ul>
+            t = t.replace(/(<li>.*?<\/li>(?:\n<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+            // Paragraphs: double newlines become paragraph breaks
+            t = t.replace(/\n{2,}/g, '</p><p>');
+            // Single newlines become <br> only outside list/block elements
+            t = t.replace(/(?<!>)\n(?!<)/g, '<br>');
+            // Wrap in a paragraph if not already wrapped
+            if (!t.startsWith('<')) t = '<p>' + t + '</p>';
+            return t;
         }
 
         // ── SET LOADING ──
@@ -1722,7 +1771,7 @@ Keep it practical and specific to Indian context.`;
 
             const body = {
                 contents: chatHistory,
-                generationConfig: { temperature: 0.8, maxOutputTokens: 300 }
+                generationConfig: { temperature: 0.8, maxOutputTokens: 700 }
             };
 
             try {
